@@ -43,8 +43,8 @@ pub trait Harness {
 }
 ```
 
-The signatures are a sketch and will change while the Herdr adapter is
-extracted from brgr. The split is the part that is settled.
+The signatures are a sketch and will change while the first adapters are
+built. The split is the part that is settled.
 
 `Capabilities` lets the core refuse early: `read` on a host without screen
 access fails with `Unsupported`, it does not guess.

@@ -20,21 +20,19 @@ specific flag.
 
 ## Herdr (Tier 1)
 
-The reference host, and the one brgr is built on today. brgr's current use of
-the Herdr CLI is the minimum the Herdr adapter must cover:
+The reference host. The Herdr adapter covers:
 
-| Herdr command | Uses in brgr |
+| Verb | Herdr command |
 |---|---|
-| `agent get` | 11 |
-| `agent prompt` | 7 |
-| `pane get`, `pane close` | 5 each |
-| `pane send-keys` | 4 |
-| `pane read`, `pane run`, `pane layout`, `agent list` | 2 each |
-| `pane send-text`, `pane rename`, `pane process-info` | 1 each |
-| `worktree list/add/remove/create` | 9 in total |
+| spawn | `pane run`, `pane layout`, `agent prompt` |
+| read | `pane read` |
+| send / keys | `pane send-text`, `pane send-keys` |
+| close | `pane close` |
+| host idle | `agent get`, `agent list` |
+| adopt | `pane get`, `pane process-info`, `pane rename` |
 
-Worktree commands are workspace management, not driving; they stay in the
-consumer, not in agentdriver (see [decision 7](decisions.md#7-worktrees-belong-to-the-caller)).
+Herdr's worktree commands are workspace management, not driving; they stay
+with the caller (see [decision 7](decisions.md#7-worktrees-belong-to-the-caller)).
 
 ## Orca (Tier 1)
 
