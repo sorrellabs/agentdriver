@@ -40,7 +40,8 @@ for the session's own spawn directory.
 
 **Why:** accepting trust prompts is a security decision that belongs to the
 caller. Tools that run unattended can opt in deliberately; a library should
-not make that choice for every user.
+not make that choice for every user. (brgr accepts these prompts by contract;
+it will opt in explicitly.)
 
 ## 5. Harness configuration is per launch or per workspace, never global
 
@@ -74,11 +75,13 @@ agentdriver has no UI and does not manage projects, threads or reviews.
 people already use. Competing with its own hosts would make it worse at being
 driven into them.
 
-## 9. A standalone project, not part of an orchestrator
+## 9. Separate from brgr, and covers everything brgr needs
 
-agentdriver is its own project with its own users. It is not a component of
-any orchestrator, and no orchestrator's needs define its API.
+agentdriver is its own project: driving agent TUIs across hosts is a different
+job from brgr's agent workflows. brgr runs on agentdriver, so every host and
+harness capability brgr uses today is in scope — the Herdr commands it calls,
+its screen rules, its turn signals and result capture.
 
-**Why:** driving agent TUIs across hosts and deciding what work agents do are
-different problems. agentdriver is considered stable once independent
-consumers run on it.
+**Why:** the two are different products, but brgr is the most demanding real
+user of this layer. Covering it fully keeps the API honest. agentdriver is
+considered stable once a second, independent consumer also runs on it.

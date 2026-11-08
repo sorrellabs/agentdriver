@@ -39,7 +39,7 @@ take over any pane at any time.
 - Not an agentic development environment (ADE). It has no UI of its own and
   does not compete with the hosts it drives.
 - Not an orchestrator. It does not decide what work to give which agent;
-  that belongs to the tool on top.
+  that belongs to the tool on top (for example [brgr]).
 - Not a daemon or server. Every call is a short process or a bounded wait.
 
 ## Support at a glance
@@ -70,7 +70,14 @@ verified on every release on a fresh Linux VM and on macOS. Details:
 - [Prior art](docs/prior-art.md) — related tools and how agentdriver differs
 - [Roadmap](docs/roadmap.md)
 
+## Origin
+
+agentdriver is a separate project from [brgr], a cross-vendor agent workflow
+tool. brgr runs on agentdriver, and everything brgr needs from a host or
+harness is in scope.
+
 ## License
 
 MIT
 
+[brgr]: https://github.com/justn-hyeok/brgr

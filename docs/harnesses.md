@@ -93,7 +93,8 @@ adapters fall back to screen rules, and `status` reports the source as
 
 Screen rules are harness-specific recognisers for the visible screen:
 folder-trust prompts, hook-trust prompts, MCP-trust prompts, update offers,
-and the "ready for input" state. Each rule has a stable name (for example `workspace-trust`,
+and the "ready for input" state. brgr's set (about 1,300 lines) is the
+starting point. Each rule has a stable name (for example `workspace-trust`,
 `codex-hooks-trust`, `mcp-trust`) so callers can opt in to answering it by
 name.
 
