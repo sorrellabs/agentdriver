@@ -91,3 +91,43 @@ its screen rules, its turn signals and result capture.
 **Why:** the two are different products, but brgr is the most demanding real
 user of this layer. Covering it fully keeps the API honest. agentdriver is
 considered stable once a second, independent consumer also runs on it.
+
+## 10. Synchronous core
+
+The library is blocking: `std::process`, bounded waits, one polling loop for
+several sessions. Only the MCP server runs `tokio`, calling the core through
+`spawn_blocking`.
+
+**Why:** every operation is a short external command or a bounded wait on a
+file or a screen, so async buys little. A blocking core does not force a
+runtime on library users, starts fast enough to run inside a harness hook,
+and matches brgr's pane layer, which is blocking today.
+
+## 11. One package
+
+The library, the `agentdriver` CLI and the MCP server (`agentdriver mcp`) ship
+as one crates.io package with `cli` and `mcp` default features and one feature
+per host.
+
+**Why:** users get one name to install (`cargo install agentdriver`) and one
+to depend on (`default-features = false`). More crates add release work and
+are worth it only when a user needs one part without the rest.
+
+## 12. Versioning
+
+0.x SemVer from `0.1.0`; patch by default; minor only for a breaking change to
+the Rust API, CLI JSON or MCP schemas; 1.0 only when the owner says so. Wire
+formats carry their own schema version.
+
+**Why:** Cargo treats a 0.x minor as breaking, so breaking changes must be
+minors or every dependent breaks on `cargo update`. Keeping patch as the
+default keeps the number honest about compatibility rather than progress.
+
+## 13. Pinned toolchain
+
+`rust-toolchain.toml` pins Rust 1.95.0, the same as brgr; `rust-version` is
+the MSRV. Both move together in a dedicated change.
+
+**Why:** every machine and CI job builds with the same compiler, so a new
+stable release cannot surprise a build with new lints or behaviour. Matching
+brgr means one toolchain installed for both projects.
