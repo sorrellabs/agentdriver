@@ -44,13 +44,16 @@ The repository is at the design stage; code lands milestone by milestone
 
 ## Project Structure
 
-- `src/lib.rs` — public API: `Session`, the verbs, errors.
-- `src/core/` — session state on disk, wait loop, signal store, prompt policy.
-- `src/host/` — `Host` trait and one module per host (`herdr.rs`, `tmux.rs`, …).
-- `src/harness/` — `Harness` trait, one module per harness, screen rules in
-  `src/harness/rules/`.
-- `src/cli/` and `src/mcp/` — the two surfaces; no logic that the library
-  lacks.
+See [docs/architecture.md](docs/architecture.md) for the module map.
+
+- `src/lib.rs`, `driver.rs`, `session.rs`, `wait.rs` — public API and the verbs.
+- `src/host/` — `Host` trait and one module per host, each behind a feature.
+- `src/harness/` — `Harness` trait and launch recipes.
+- `src/rules/` — screen rules, `classify`, `RulePolicy`.
+- `src/state.rs` — session state on disk. `src/exec.rs` — the only place that
+  runs external commands.
+- `src/bin/agentdriver/` — CLI and MCP; no logic the library lacks, and the only
+  code that may use clap, rmcp or tokio.
 - `tests/` — black-box tests; `testdata/screens/` captured screens;
   `testdata/fake-host/` and `testdata/fake-agent/` the deterministic fakes.
 - `docs/` — design, research, the [brgr coverage checklist](docs/brgr-coverage/README.md).
@@ -62,6 +65,8 @@ The repository is at the design stage; code lands milestone by milestone
 - `cargo test --all-features`
 - `cargo fmt --all -- --check`
 - `cargo clippy --all-targets --all-features -- -D warnings`
+- `cargo tree --no-default-features -e normal` — must not list clap, anyhow,
+  rmcp or tokio.
 - `cargo test --features live -- --ignored` — live conformance against real
   hosts and logged-in harnesses. Opt-in, never in CI.
 

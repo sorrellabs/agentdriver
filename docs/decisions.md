@@ -131,3 +131,23 @@ the MSRV. Both move together in a dedicated change.
 **Why:** every machine and CI job builds with the same compiler, so a new
 stable release cannot surprise a build with new lints or behaviour. Matching
 brgr means one toolchain installed for both projects.
+
+## 14. Hosts are driven through their CLIs
+
+Each host adapter shells out to the host's own CLI through `exec.rs`. No host
+client crates, and no direct socket connections for now.
+
+**Why:** Herdr's documentation recommends the CLI for most automation, and some
+behaviour exists only there, such as retrying while a shell starts. Its protocol
+number is at 22 and refuses mismatches, so a socket client would track a moving
+schema. tmux needs about eight commands, less than the `tmux_interface` crate
+costs. The transport stays private to each adapter, so Herdr's socket can be
+added later for event subscriptions without changing the `Host` trait.
+
+## 15. Match screens, not streams
+
+Conditions run against a `Screen` snapshot, never an output stream that is
+consumed as it is read.
+
+**Why:** expect-style libraries assume output that scrolls by. Claude Code and
+Codex repaint the whole screen, so a stream does not describe what is visible.

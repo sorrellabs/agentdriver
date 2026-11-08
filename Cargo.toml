@@ -1,0 +1,60 @@
+[package]
+name = "agentdriver"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+description = "Drive coding-agent TUIs in any terminal host: spawn, read, send, wait for idle, close."
+repository = "https://github.com/sorrellabs/agentdriver"
+readme = "README.md"
+keywords = ["agents", "tui", "terminal", "tmux", "automation"]
+categories = ["command-line-utilities", "development-tools"]
+include = ["src/**", "assets/**", "Cargo.toml", "README.md", "LICENSE"]
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "agentdriver"
+path = "src/bin/agentdriver/main.rs"
+required-features = ["cli"]
+doc = false
+
+[features]
+default = ["cli", "mcp", "herdr", "tmux"]
+# Binary surfaces. Library users turn these off with `default-features = false`.
+cli = ["dep:clap", "dep:anyhow"]
+mcp = ["cli", "dep:rmcp", "dep:tokio", "dep:schemars"]
+# One feature per host adapter.
+herdr = []
+tmux = []
+# In-memory host and agent for tests in this crate and in consumers.
+fake = []
+# Live conformance tests against real hosts and logged-in harnesses (`cargo test --features live -- --ignored`).
+live = []
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+clap = { version = "4.6.7", features = ["derive", "env", "wrap_help"], optional = true }
+anyhow = { version = "1.0.104", optional = true }
+rmcp = { version = "3.9.0", default-features = false, features = ["server", "macros", "transport-io", "schemars"], optional = true }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "io-std"], optional = true }
+schemars = { version = "1.2.3", optional = true }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"
+
+[lints.clippy]
+dbg_macro = "deny"
+print_stdout = "warn"
+unwrap_used = "warn"
+
+[profile.dist]
+inherits = "release"
+lto = "thin"

@@ -1,103 +1,116 @@
 # Architecture
 
+This describes the code as it exists. The skeleton compiles and its tests pass;
+the Herdr and tmux adapters and most screen rules are filled in by the
+[roadmap](roadmap.md) milestones.
+
 ## Layers
 
 ```text
-┌──────────────────────────────────────────────────────────┐
-│ surfaces      agentdriver-cli          agentdriver-mcp   │
-├──────────────────────────────────────────────────────────┤
-│ core          agentdriver   (Session, verbs, wait loop,  │
-│               signal store, prompt policy)               │
-├───────────────────────────────┬──────────────────────────┤
-│ host port     trait Host      │ harness port  trait Harness
-├───────────────────────────────┼──────────────────────────┤
-│ host adapters                 │ harness adapters         │
-│ herdr · orca · tmux · cmux ·  │ claude · codex · cursor ·│
-│ t3 · ovis · ghostty · …       │ devin · opencode · …     │
-└───────────────────────────────┴──────────────────────────┘
+ src/bin/agentdriver/   main.rs (clap)        mcp.rs (rmcp, tokio)
+                               │                    │ spawn_blocking
+ ──────────────────────────────┴────────────────────┴──────────────
+ library                  Driver → Session → Wait
+                               │
+              ┌────────────────┼─────────────────┐
+              ▼                ▼                 ▼
+         trait Host       trait Harness     rules (classify)
+              │                │
+   herdr · tmux · fake     Recipe table          state/ (disk)
+              │
+           exec.rs  (every external command: timeout + output cap)
 ```
 
-The core never calls a host CLI or reads a harness's config format. Every
-host-specific and harness-specific detail lives behind one of the two ports.
+The library never sees clap, rmcp or tokio: they are optional dependencies used
+only under `src/bin/`. `cargo tree --no-default-features -e normal` must not list
+them.
 
-## Ports
+## Module map
 
-```rust
-pub trait Host {
-    fn capabilities(&self) -> Capabilities;
-    fn spawn(&self, spec: &SpawnSpec) -> Result<PaneRef>;
-    fn read(&self, pane: &PaneRef) -> Result<Screen>;
-    fn send_text(&self, pane: &PaneRef, text: &str) -> Result<()>;
-    fn send_keys(&self, pane: &PaneRef, keys: &[Key]) -> Result<()>;
-    fn close(&self, pane: &PaneRef) -> Result<()>;
-    fn agent_state(&self, pane: &PaneRef) -> Result<Option<HostAgentState>>; // hosts with idle
-    fn process(&self, pane: &PaneRef) -> Result<Option<ProcessInfo>>;
-}
+| Path | Responsibility |
+|---|---|
+| `src/driver.rs` | `Driver::spawn`: session id, signal setup, launch, session record |
+| `src/session.rs` | `Session`: `verify`, `screen`, `send_prompt`, `press`, `wait`, `resolve_prompt`, `close` |
+| `src/wait.rs` | `Wait` builder: `at_most`, `every`, `forever`, `until`, `for_text`, `for_stable`, `for_idle` |
+| `src/host/mod.rs` | `Host` trait, `Capabilities`, `PaneRef`, `SpawnSpec`, `Placement`, `StartMode` |
+| `src/host/{herdr,tmux}.rs` | one adapter per host, each behind a feature |
+| `src/host/fake.rs` | in-memory host for tests (`--features fake`) |
+| `src/harness/mod.rs` | `Harness` trait, `LaunchPlan`, `SignalSetup`, `Signal` |
+| `src/harness/recipe.rs` | launch data for the eleven built-in harnesses |
+| `src/rules/mod.rs` | `classify`, `RulePolicy`, the ordered rule list |
+| `src/rules/text.rs` | `squash`, `menu_options`, `keys_between`, `has_continue_notice` |
+| `src/state.rs` | `SessionRecord`, session directory, signal file reading |
+| `src/exec.rs` | bounded command runner |
+| `src/error.rs` | `Error`, `ErrorKind` |
+| `src/id.rs`, `key.rs`, `screen.rs` | `PaneId` and friends, `Key`, `Screen` |
 
-pub trait Harness {
-    fn launch(&self, req: &LaunchRequest) -> Result<LaunchPlan>;   // argv, env, files to write
-    fn signal(&self, state_dir: &Path) -> SignalSetup;               // hook/notify/plugin
-    fn parse_signal(&self, line: &str) -> Option<Signal>;            // turn-finished, answer
-    fn screen_rules(&self) -> &[ScreenRule];                         // prompts, ready state
-    fn submit(&self) -> SubmitStyle;                                 // how Enter is delivered
-}
-```
+## The two ports
 
-The signatures are a sketch and will change while the Herdr adapter is
-extracted from brgr. The split is the part that is settled.
+**`Host`** has eight required methods: `kind`,
+`capabilities`, `spawn`, `read`, `send_text`, `send_keys`, `close` and
+`pane_info`. Optional abilities (`agent_state`, `prompt`, `layout`, `resize`,
+`rename`, `locate_caller`) default to `ErrorKind::Unsupported` and are announced
+through `Capabilities`, so a host only implements what it has. The trait is
+object-safe: the driver holds an `Arc<dyn Host>`.
 
-`Capabilities` lets the core refuse early: `read` on a host without screen
-access fails with `Unsupported`, it does not guess.
+`pane_info` returns `Ok(None)` only for a proven absence, such as Herdr's
+`pane_not_found`. Any doubt is an error, so a transient failure can never look
+like a closed pane.
+
+**`Harness`** builds a `LaunchPlan` from a `LaunchRequest`, and optionally
+installs a turn-finished signal (`SignalSetup`) and parses its lines. The
+executable path always comes from the caller. Full-permission flags are added
+only when the request asks for them.
+
+## Decisions taken from prior art
+
+| From | Taken | Not taken |
+|---|---|---|
+| bat, mdBook | One package; library at `src/lib.rs`, binary in `src/bin/`; `dep:` optional dependencies; `required-features` on the binary | mdBook's later split into many crates, which served plugin authors we do not have |
+| fantoccini | Cheap session handle; `wait().at_most().every().for_x()` builder; `Ok(None)` retries, `Err` aborts | Its async API |
+| thirtyfour | Boxed, non-exhaustive error, so `Result` stays small and new failures are not breaking | |
+| rexpect | Timeout errors that carry what was awaited and what was seen | A stream of consumed output |
+| expectrl | Open predicates (`until`) | Matching a byte stream: full-screen TUIs repaint, so agentdriver matches screen snapshots |
+| Herdr | `pane_id` + `terminal_id` identity; `Idle/Working/Blocked/Done/Unknown` states | Its socket, for now (see [decision 14](decisions.md#14-hosts-are-driven-through-their-clis)) |
+| tmux_interface | Nothing | The dependency: compile-time tmux versions and untyped errors, for eight commands we can wrap directly |
+| rmcp SDK | `#[tool_router]`, stdio, `spawn_blocking` around blocking work | |
 
 ## Session state
 
-Each session gets a directory:
-
 ```text
 $AGENTDRIVER_STATE/<session-id>/
-  session.json     host, pane ref, harness, cwd, created_at, owner pid
-  signals          append-only, one line per signal (written by hooks)
-  rules.log        which screen rule fired, which keys were sent
-  files/           per-workspace hook files the adapter wrote (removed on close)
+  session.json   schema, id, host, pane ref, harness, cwd, created_at
+  signals        append-only, one line per harness event
+  rules.log      {unix_secs} {pane} {rule} {keys}
 ```
 
-`$AGENTDRIVER_STATE` defaults to the platform state directory. Nothing is
-kept in memory between calls, so any process — the CLI, the MCP server, a
-library user — can pick up a session by id.
+`$AGENTDRIVER_STATE` defaults to `~/Library/Application Support/agentdriver` on
+macOS and `$XDG_STATE_HOME/agentdriver` elsewhere. Nothing is held in memory
+between calls. A partial line in `signals` is left until its newline arrives.
 
-## Waiting without a daemon
+## Waiting
 
-`wait` is a bounded loop in the caller's process:
+`Wait` is a bounded loop in the caller's process with no daemon. It reads the
+screen, then runs the condition: `Ok(None)` retries, `Err` aborts, `Ok(Some)`
+returns. `for_idle` checks for a harness signal written since the call began,
+then the host's agent state. A timeout is `ErrorKind::Timeout`, which names what
+was awaited and quotes the last screen.
 
-1. watch `signals` for a new turn-finished line (file watch, with polling as
-   a fallback);
-2. when the host has `idle`, poll its agent state;
-3. read the screen at a slow interval and run the screen rules — to detect
-   prompts and to cover harnesses without a signal;
-4. stop on the condition, on process exit, or on the mandatory timeout.
+## Safety properties the skeleton already enforces
 
-Hooks only append a line and exit. Nothing waits on a background process, and
-a missing agentdriver process never delays the agent.
-
-## Sending text safely
-
-TUIs treat pasted text, typed text and Enter differently. Each harness
-declares its `SubmitStyle` (for example: paste, settle, then Enter as a
-separate key), and the host adapter picks the most faithful transport it has
-(bracketed paste, `paste-buffer`, `send-text`). The core waits for the screen
-to show the input before submitting.
-
-## Errors
-
-Every error names the layer (`host`, `harness`, `core`), the verb, and the
-external command and exit status when there is one. A timeout returns the last
-screen and last signal instead of an error.
+- Input and close call `Session::verify`; a pane id now held by another terminal
+  fails with `PaneReplaced`, and is not closed.
+- `close` on a pane that is already gone succeeds.
+- Nothing is read or pressed while the host reports the agent working.
+- A prompt whose rule is not enabled is reported as `Classification::Prompt`.
+- A menu no rule recognises is `Classification::Unknown` and never pressed.
+- External commands run with stdin closed, a timeout and an output cap, and a
+  background process holding a pipe open cannot block the return.
 
 ## Testing
 
-- **Unit:** screen rules against recorded screens; signal parsers against
-  recorded hook payloads.
-- **Adapter contract:** one shared test suite every host adapter must pass,
-  run against a fake harness (a small TUI that behaves like an agent).
-- **Conformance:** the live Tier 1 matrix described in
+- **Unit:** beside the code. Screen rules take captured screens.
+- **Session behaviour:** `FakeHost` scripts screens, states and reused terminals.
+- **Adapter contract:** one shared suite every host passes (M1).
+- **Conformance:** the live Tier 1 matrix in
   [support tiers](support-tiers.md#release-verification).

@@ -55,8 +55,9 @@ kind, the working directory, and a small state directory where signals land.
 | `status(session)` | busy / idle / waiting-for-input / exited, with the signal source |
 | `close(session)` | close the pane and end the process |
 
-Every `wait` has a mandatory timeout. A timeout is a normal outcome, not an
-error, and reports the last screen and the last signal seen.
+Every `wait` has a timeout unless the caller explicitly asks to wait forever.
+A timeout is returned as `ErrorKind::Timeout`, which names what was awaited and
+quotes the last screen.
 
 ## Idle
 
