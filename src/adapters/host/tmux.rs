@@ -1,20 +1,22 @@
-//! Tmux adapter. Shells out to the `tmux` CLI through [`crate::exec`]; the verbs
+//! Tmux adapter. Shells out to the `tmux` CLI through [`crate::adapters::exec`]; the verbs
 //! are filled in by the roadmap milestone that ships this host.
 
-use crate::error::Result;
-use crate::host::{
-    Capabilities, Host, HostKind, PaneInfo, PaneRef, ReadOptions, SpawnSpec, TextMode, unsupported,
+use crate::domain::error::Result;
+use crate::domain::id::{HostKind, PaneId};
+use crate::domain::key::Key;
+use crate::domain::screen::Screen;
+use crate::ports::host::{
+    Capabilities, Host, PaneInfo, PaneRef, ReadOptions, SpawnSpec, TextMode, unsupported,
 };
-use crate::id::PaneId;
-use crate::key::Key;
-use crate::screen::Screen;
+
+pub const KIND: HostKind = HostKind::from_static("tmux");
 
 #[derive(Debug, Default)]
 pub struct Tmux;
 
 impl Host for Tmux {
     fn kind(&self) -> HostKind {
-        HostKind::Tmux
+        KIND
     }
 
     fn capabilities(&self) -> Capabilities {

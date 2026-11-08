@@ -1,56 +1,11 @@
-//! The port every agent harness implements, and the built-in recipes.
+//! The port every agent harness implements.
 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use serde::{Deserialize, Serialize};
-
-use crate::error::Result;
-
-mod recipe;
-
-pub use recipe::{Recipe, recipes};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-#[non_exhaustive]
-pub enum HarnessKind {
-    Claude,
-    Codex,
-    Cursor,
-    Devin,
-    OpenCode,
-    Omp,
-    CommandCode,
-    Cline,
-    Copilot,
-    Gemini,
-    Pi,
-}
-
-impl HarnessKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Claude => "claude",
-            Self::Codex => "codex",
-            Self::Cursor => "cursor",
-            Self::Devin => "devin",
-            Self::OpenCode => "opencode",
-            Self::Omp => "omp",
-            Self::CommandCode => "command-code",
-            Self::Cline => "cline",
-            Self::Copilot => "copilot",
-            Self::Gemini => "gemini",
-            Self::Pi => "pi",
-        }
-    }
-}
-
-impl fmt::Display for HarnessKind {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
+use crate::domain::error::Result;
+use crate::domain::id::HarnessKind;
+use crate::domain::rule::Rule;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchRequest {
@@ -93,5 +48,10 @@ pub trait Harness: Send + Sync + fmt::Debug {
 
     fn parse_signal(&self, _line: &str) -> Option<Signal> {
         None
+    }
+
+    /// The prompts this harness can show, in evaluation order.
+    fn rules(&self) -> &[Rule] {
+        &[]
     }
 }

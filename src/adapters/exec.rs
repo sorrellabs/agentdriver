@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::error::{ErrorKind, Result};
+use crate::domain::error::{ErrorKind, Result};
 
 const POLL: Duration = Duration::from_millis(5);
 /// How long to wait for output after exit. A background grandchild can hold a pipe open.

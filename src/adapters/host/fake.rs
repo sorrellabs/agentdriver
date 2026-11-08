@@ -3,13 +3,15 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use crate::error::{ErrorKind, Result};
-use crate::host::{
-    AgentState, Capabilities, Host, HostKind, PaneInfo, PaneRef, ReadOptions, SpawnSpec, TextMode,
+use crate::domain::error::{ErrorKind, Result};
+use crate::domain::id::{HostKind, PaneId, TerminalId};
+use crate::domain::key::Key;
+use crate::domain::screen::Screen;
+use crate::ports::host::{
+    AgentState, Capabilities, Host, PaneInfo, PaneRef, ReadOptions, SpawnSpec, TextMode,
 };
-use crate::id::{PaneId, TerminalId};
-use crate::key::Key;
-use crate::screen::Screen;
+
+pub const KIND: HostKind = HostKind::from_static("fake");
 
 #[derive(Debug, Default)]
 struct Pane {
@@ -78,7 +80,7 @@ fn terminal_id(terminal: u32) -> TerminalId {
 
 impl Host for FakeHost {
     fn kind(&self) -> HostKind {
-        HostKind::Fake
+        KIND
     }
 
     fn capabilities(&self) -> Capabilities {

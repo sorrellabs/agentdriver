@@ -1,14 +1,13 @@
 //! Bounded waiting on a session. Every wait has a limit unless the caller
 //! explicitly asks for [`Wait::forever`].
 
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use crate::error::{ErrorKind, Result};
-use crate::harness::Signal;
-use crate::host::{AgentState, ReadOptions};
-use crate::screen::Screen;
-use crate::session::Session;
+use crate::core::Session;
+use crate::domain::error::{ErrorKind, Result};
+use crate::domain::screen::Screen;
+use crate::ports::harness::Signal;
+use crate::ports::host::{AgentState, ReadOptions};
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 pub const DEFAULT_PERIOD: Duration = Duration::from_millis(250);
@@ -64,7 +63,8 @@ impl<'session> Wait<'session> {
         waited_for: &str,
         mut check: impl FnMut(&Screen) -> Result<Option<T>>,
     ) -> Result<T> {
-        let started = Instant::now();
+        let clock = self.session.clock();
+        let started = clock.now();
         loop {
             let screen = self
                 .session
@@ -73,15 +73,16 @@ impl<'session> Wait<'session> {
             if let Some(value) = check(&screen)? {
                 return Ok(value);
             }
-            if self.timeout.is_some_and(|limit| started.elapsed() >= limit) {
+            let elapsed = clock.now().saturating_sub(started);
+            if self.timeout.is_some_and(|limit| elapsed >= limit) {
                 return Err(ErrorKind::Timeout {
                     waited_for: waited_for.to_owned(),
-                    elapsed: started.elapsed(),
+                    elapsed,
                     excerpt: screen.excerpt(),
                 }
                 .into());
             }
-            thread::sleep(self.period);
+            clock.sleep(self.period);
         }
     }
 
@@ -94,15 +95,16 @@ impl<'session> Wait<'session> {
 
     /// The screen stays unchanged for `quiet`. Not the same as idle.
     pub fn for_stable(self, quiet: Duration) -> Result<Screen> {
-        let mut last: Option<(Screen, Instant)> = None;
+        let clock = self.session.clock();
+        let mut last: Option<(Screen, Duration)> = None;
         self.until("a stable screen", |screen| {
             match &last {
                 Some((previous, since)) if previous == screen => {
-                    if since.elapsed() >= quiet {
+                    if clock.now().saturating_sub(*since) >= quiet {
                         return Ok(Some(screen.clone()));
                     }
                 }
-                _ => last = Some((screen.clone(), Instant::now())),
+                _ => last = Some((screen.clone(), clock.now())),
             }
             Ok(None)
         })
@@ -112,15 +114,15 @@ impl<'session> Wait<'session> {
     /// signal written after this call, then the host's agent state.
     pub fn for_idle(self) -> Result<Idle> {
         let session = self.session;
-        let mut offset = session.dir().signal_offset();
+        let store = session.store();
+        let mut cursor = store.signal_cursor(session.id())?;
         let host_state = session.host().capabilities().agent_state;
         self.until("the agent to finish its turn", |_| {
-            let (lines, next) = session.dir().signals_since(offset)?;
-            offset = next;
+            let (lines, next) = store.signals_since(session.id(), cursor)?;
+            cursor = next;
             let finished = lines
                 .iter()
-                .filter_map(|line| session.harness().parse_signal(line))
-                .next();
+                .find_map(|line| session.harness().parse_signal(line));
             if let Some(Signal::TurnFinished { answer }) = finished {
                 return Ok(Some(Idle {
                     source: IdleSource::Harness,

@@ -2,8 +2,11 @@
 
 use std::path::Path;
 
-use crate::error::Result;
-use crate::harness::{Harness, HarnessKind, LaunchPlan, LaunchRequest};
+use crate::adapters::harness::rules::COMMON;
+use crate::domain::error::Result;
+use crate::domain::id::HarnessKind;
+use crate::domain::rule::Rule;
+use crate::ports::harness::{Harness, LaunchPlan, LaunchRequest};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ModelFlag {
@@ -14,92 +17,104 @@ pub enum ModelFlag {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Recipe {
-    pub kind: HarnessKind,
+    pub kind: &'static str,
     pub interactive: &'static [&'static str],
     pub full_permission: &'static [&'static str],
     pub model: ModelFlag,
     pub env: &'static [(&'static str, &'static str)],
+    pub rules: &'static [Rule],
 }
 
 const MODEL: ModelFlag = ModelFlag::Separate("--model");
 
 const RECIPES: &[Recipe] = &[
     Recipe {
-        kind: HarnessKind::Claude,
+        kind: "claude",
         interactive: &[],
         full_permission: &["--permission-mode", "bypassPermissions"],
         model: MODEL,
         env: &[("DISABLE_AUTOUPDATER", "1")],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Codex,
+        kind: "codex",
         interactive: &[],
         full_permission: &["--dangerously-bypass-approvals-and-sandbox"],
         model: MODEL,
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Cursor,
+        kind: "cursor",
         interactive: &["--trust"],
         full_permission: &["--force"],
         model: MODEL,
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Devin,
+        kind: "devin",
         interactive: &["--respect-workspace-trust", "false"],
         full_permission: &["--permission-mode", "dangerous"],
         model: ModelFlag::Joined("--model"),
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::OpenCode,
+        kind: "opencode",
         interactive: &[],
         full_permission: &["--auto"],
         model: MODEL,
         env: &[("OPENCODE_DISABLE_AUTOUPDATE", "1")],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Omp,
+        kind: "omp",
         interactive: &[],
         full_permission: &["--approval-mode=yolo"],
         model: MODEL,
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::CommandCode,
+        kind: "command-code",
         interactive: &["--trust", "--no-auto-update", "--skip-onboarding"],
         full_permission: &["--permission-mode", "yolo"],
         model: MODEL,
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Cline,
+        kind: "cline",
         interactive: &[],
         full_permission: &["--auto-approve", "true"],
         model: ModelFlag::Unsupported,
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Copilot,
+        kind: "copilot",
         interactive: &["--no-auto-update", "--no-ask-user"],
         full_permission: &["--yolo"],
         model: MODEL,
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Gemini,
+        kind: "gemini",
         interactive: &["--skip-trust"],
         full_permission: &["--approval-mode", "yolo"],
         model: MODEL,
         env: &[],
+        rules: COMMON,
     },
     Recipe {
-        kind: HarnessKind::Pi,
+        kind: "pi",
         interactive: &[],
         full_permission: &[],
         model: MODEL,
         env: &[],
+        rules: COMMON,
     },
 ];
 
@@ -108,9 +123,14 @@ pub fn recipes() -> &'static [Recipe] {
     RECIPES
 }
 
+/// The built-in recipe with this name.
+pub fn recipe(kind: &str) -> Option<Recipe> {
+    RECIPES.iter().find(|recipe| recipe.kind == kind).copied()
+}
+
 impl Harness for Recipe {
     fn kind(&self) -> HarnessKind {
-        self.kind
+        HarnessKind::from_static(self.kind)
     }
 
     fn launch(&self, request: &LaunchRequest) -> Result<LaunchPlan> {
@@ -136,6 +156,10 @@ impl Harness for Recipe {
                 .collect(),
         })
     }
+
+    fn rules(&self) -> &[Rule] {
+        self.rules
+    }
 }
 
 fn display(path: &Path) -> String {
@@ -148,8 +172,8 @@ mod tests {
 
     use super::*;
 
-    fn recipe(kind: HarnessKind) -> Recipe {
-        *recipes().iter().find(|recipe| recipe.kind == kind).unwrap()
+    fn built_in(kind: &str) -> Recipe {
+        recipe(kind).unwrap()
     }
 
     fn request(model: Option<&str>, full_permission: bool) -> LaunchRequest {
@@ -163,7 +187,7 @@ mod tests {
 
     #[test]
     fn full_permission_is_added_only_on_request() {
-        let claude = recipe(HarnessKind::Claude);
+        let claude = built_in("claude");
         assert_eq!(
             claude.launch(&request(None, false)).unwrap().argv,
             ["/bin/agent"]
@@ -176,7 +200,7 @@ mod tests {
 
     #[test]
     fn devin_takes_its_model_in_the_joined_form() {
-        let argv = recipe(HarnessKind::Devin)
+        let argv = built_in("devin")
             .launch(&request(Some("m1"), false))
             .unwrap()
             .argv;
@@ -186,10 +210,10 @@ mod tests {
     #[test]
     fn self_update_is_disabled_for_claude_and_opencode() {
         for (kind, variable) in [
-            (HarnessKind::Claude, "DISABLE_AUTOUPDATER"),
-            (HarnessKind::OpenCode, "OPENCODE_DISABLE_AUTOUPDATE"),
+            ("claude", "DISABLE_AUTOUPDATER"),
+            ("opencode", "OPENCODE_DISABLE_AUTOUPDATE"),
         ] {
-            let plan = recipe(kind).launch(&request(None, false)).unwrap();
+            let plan = built_in(kind).launch(&request(None, false)).unwrap();
             assert_eq!(plan.env, [(variable.to_owned(), "1".to_owned())]);
         }
     }

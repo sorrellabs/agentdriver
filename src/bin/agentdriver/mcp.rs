@@ -1,7 +1,7 @@
 //! The MCP surface. Tools are async and call the synchronous core through
 //! `spawn_blocking`, so a long wait never stalls the server.
 
-use agentdriver::harness::recipes;
+use agentdriver::adapters::harness::recipes;
 use rmcp::{ServiceExt, tool, tool_router, transport::stdio};
 
 #[derive(Debug, Clone)]
@@ -14,7 +14,7 @@ impl Server {
         tokio::task::spawn_blocking(|| {
             recipes()
                 .iter()
-                .map(|recipe| recipe.kind.as_str())
+                .map(|recipe| recipe.kind)
                 .collect::<Vec<_>>()
                 .join("\n")
         })

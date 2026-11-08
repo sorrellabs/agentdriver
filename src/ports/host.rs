@@ -10,48 +10,10 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{ErrorKind, Result};
-use crate::id::{PaneId, TerminalId};
-use crate::key::Key;
-use crate::screen::Screen;
-
-#[cfg(any(test, feature = "fake"))]
-pub mod fake;
-#[cfg(feature = "herdr")]
-pub mod herdr;
-#[cfg(feature = "tmux")]
-pub mod tmux;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-#[non_exhaustive]
-pub enum HostKind {
-    Herdr,
-    Tmux,
-    Orca,
-    Cmux,
-    T3Code,
-    Fake,
-}
-
-impl HostKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Herdr => "herdr",
-            Self::Tmux => "tmux",
-            Self::Orca => "orca",
-            Self::Cmux => "cmux",
-            Self::T3Code => "t3-code",
-            Self::Fake => "fake",
-        }
-    }
-}
-
-impl fmt::Display for HostKind {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(self.as_str())
-    }
-}
+use crate::domain::error::{ErrorKind, Result};
+use crate::domain::id::{HostKind, PaneId, TerminalId};
+use crate::domain::key::Key;
+use crate::domain::screen::Screen;
 
 /// What a host can do beyond the required verbs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
@@ -209,6 +171,7 @@ pub trait Host: Send + Sync + fmt::Debug {
     }
 }
 
-pub(crate) fn unsupported(host: HostKind, operation: &'static str) -> crate::Error {
+/// The error for an ability this host does not have.
+pub fn unsupported(host: HostKind, operation: &'static str) -> crate::Error {
     ErrorKind::Unsupported { host, operation }.into()
 }

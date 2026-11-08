@@ -1,20 +1,22 @@
-//! Herdr adapter. Shells out to the `herdr` CLI through [`crate::exec`]; the verbs
+//! Herdr adapter. Shells out to the `herdr` CLI through [`crate::adapters::exec`]; the verbs
 //! are filled in by the roadmap milestone that ships this host.
 
-use crate::error::Result;
-use crate::host::{
-    Capabilities, Host, HostKind, PaneInfo, PaneRef, ReadOptions, SpawnSpec, TextMode, unsupported,
+use crate::domain::error::Result;
+use crate::domain::id::{HostKind, PaneId};
+use crate::domain::key::Key;
+use crate::domain::screen::Screen;
+use crate::ports::host::{
+    Capabilities, Host, PaneInfo, PaneRef, ReadOptions, SpawnSpec, TextMode, unsupported,
 };
-use crate::id::PaneId;
-use crate::key::Key;
-use crate::screen::Screen;
+
+pub const KIND: HostKind = HostKind::from_static("herdr");
 
 #[derive(Debug, Default)]
 pub struct Herdr;
 
 impl Host for Herdr {
     fn kind(&self) -> HostKind {
-        HostKind::Herdr
+        KIND
     }
 
     fn capabilities(&self) -> Capabilities {

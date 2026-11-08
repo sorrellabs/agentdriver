@@ -1,6 +1,6 @@
 //! Screen-text helpers shared by the rules.
 
-use crate::key::Key;
+use crate::domain::key::Key;
 
 /// Removes all whitespace, so text wrapped by a narrow pane still matches.
 pub fn squash(text: &str) -> String {

@@ -1,6 +1,6 @@
 #![allow(clippy::print_stdout)]
 
-use agentdriver::harness::recipes;
+use agentdriver::adapters::harness::recipes;
 use clap::{Parser, Subcommand};
 
 #[cfg(feature = "mcp")]

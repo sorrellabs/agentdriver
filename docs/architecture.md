@@ -6,61 +6,86 @@ the Herdr and tmux adapters and most screen rules are filled in by the
 
 ## Layers
 
+The crate is hexagonal. Dependencies point inward only.
+
 ```text
- src/bin/agentdriver/   main.rs (clap)        mcp.rs (rmcp, tokio)
-                               │                    │ spawn_blocking
- ──────────────────────────────┴────────────────────┴──────────────
- library                  Driver → Session → Wait
+ driving adapters    src/bin/agentdriver/  main.rs (clap) · mcp.rs (rmcp, tokio)
                                │
-              ┌────────────────┼─────────────────┐
-              ▼                ▼                 ▼
-         trait Host       trait Harness     rules (classify)
-              │                │
-   herdr · tmux · fake     Recipe table          state/ (disk)
-              │
-           exec.rs  (every external command: timeout + output cap)
+ ┌─────────────────────────────▼─────────────────────────────┐
+ │ core      Driver → Session → Wait · classify · RulePolicy │
+ │                              │                            │
+ │ ports     Host · Harness · Store · Clock                  │
+ │                                                           │
+ │ domain    Error · ids · Key · Screen · Rule · text        │
+ └─────────────────────────────▲─────────────────────────────┘
+                               │ implement the ports
+ driven adapters     src/adapters/
+                     host/{herdr,tmux,fake} · harness/{recipe,rules}
+                     store (FsStore, MemoryStore) · clock (SystemClock, FakeClock)
+                     exec (timeout + output cap for every external command)
 ```
 
-The library never sees clap, rmcp or tokio: they are optional dependencies used
-only under `src/bin/`. `cargo tree --no-default-features -e normal` must not list
-them.
+| Layer | May use | Must not use |
+|---|---|---|
+| `domain` | the standard library's data types | any other layer |
+| `ports` | `domain` | `core`, `adapters` |
+| `core` | `ports`, `domain` | `adapters`, files, processes, threads, real time, environment variables |
+| `adapters` | `ports`, `domain`, `core` only to build a `Driver` | clap, rmcp, tokio |
+| `src/bin/` | everything | |
+
+`tests/architecture.rs` fails the build when any of this is broken.
+
+clap, rmcp and tokio are optional dependencies used only under `src/bin/`.
+`cargo tree --no-default-features -e normal` must not list them.
 
 ## Module map
 
 | Path | Responsibility |
 |---|---|
-| `src/driver.rs` | `Driver::spawn`: session id, signal setup, launch, session record |
-| `src/session.rs` | `Session`: `verify`, `screen`, `send_prompt`, `press`, `wait`, `resolve_prompt`, `close` |
-| `src/wait.rs` | `Wait` builder: `at_most`, `every`, `forever`, `until`, `for_text`, `for_stable`, `for_idle` |
-| `src/host/mod.rs` | `Host` trait, `Capabilities`, `PaneRef`, `SpawnSpec`, `Placement`, `StartMode` |
-| `src/host/{herdr,tmux}.rs` | one adapter per host, each behind a feature |
-| `src/host/fake.rs` | in-memory host for tests (`--features fake`) |
-| `src/harness/mod.rs` | `Harness` trait, `LaunchPlan`, `SignalSetup`, `Signal` |
-| `src/harness/recipe.rs` | launch data for the eleven built-in harnesses |
-| `src/rules/mod.rs` | `classify`, `RulePolicy`, the ordered rule list |
-| `src/rules/text.rs` | `squash`, `menu_options`, `keys_between`, `has_continue_notice` |
-| `src/state.rs` | `SessionRecord`, session directory, signal file reading |
-| `src/exec.rs` | bounded command runner |
-| `src/error.rs` | `Error`, `ErrorKind` |
-| `src/id.rs`, `key.rs`, `screen.rs` | `PaneId` and friends, `Key`, `Screen` |
+| `src/core/driver.rs` | `Driver::spawn`: allocate, signal setup, launch, session record |
+| `src/core/session.rs` | `Session`: `verify`, `screen`, `send_prompt`, `press`, `wait`, `resolve_prompt`, `close` |
+| `src/core/wait.rs` | `Wait` builder: `at_most`, `every`, `forever`, `until`, `for_text`, `for_stable`, `for_idle` |
+| `src/core/rules.rs` | `classify`, `RulePolicy`, `Classification` |
+| `src/ports/host.rs` | `Host`, `Capabilities`, `PaneRef`, `SpawnSpec`, `Placement`, `StartMode` |
+| `src/ports/harness.rs` | `Harness`, `LaunchPlan`, `SignalSetup`, `Signal` |
+| `src/ports/store.rs` | `Store`, `SessionRecord` |
+| `src/ports/clock.rs` | `Clock` |
+| `src/domain/` | `Error`, `ErrorKind`, ids, `HostKind`, `HarnessKind`, `Key`, `Screen`, `Rule`, screen-text helpers |
+| `src/adapters/host/` | one adapter per host, each behind a feature; `fake` for tests |
+| `src/adapters/harness/` | launch recipes for eleven harnesses, their screen rules |
+| `src/adapters/store.rs` | `FsStore`; `MemoryStore` for tests |
+| `src/adapters/clock.rs` | `SystemClock`; `FakeClock` for tests |
+| `src/adapters/exec.rs` | bounded command runner, for adapters only |
 
-## The two ports
+`adapters::default_driver(host, policy)` wires the real store and clock. The fakes
+are behind the `fake` feature, which this crate's own tests turn on.
 
-**`Host`** has eight required methods: `kind`,
-`capabilities`, `spawn`, `read`, `send_text`, `send_keys`, `close` and
-`pane_info`. Optional abilities (`agent_state`, `prompt`, `layout`, `resize`,
-`rename`, `locate_caller`) default to `ErrorKind::Unsupported` and are announced
-through `Capabilities`, so a host only implements what it has. The trait is
-object-safe: the driver holds an `Arc<dyn Host>`.
+## The four ports
+
+**`Host`** has eight required methods: `kind`, `capabilities`, `spawn`, `read`,
+`send_text`, `send_keys`, `close` and `pane_info`. Optional abilities
+(`agent_state`, `prompt`, `layout`, `resize`, `rename`, `locate_caller`) default
+to `ErrorKind::Unsupported` and are announced through `Capabilities`.
 
 `pane_info` returns `Ok(None)` only for a proven absence, such as Herdr's
 `pane_not_found`. Any doubt is an error, so a transient failure can never look
 like a closed pane.
 
-**`Harness`** builds a `LaunchPlan` from a `LaunchRequest`, and optionally
-installs a turn-finished signal (`SignalSetup`) and parses its lines. The
-executable path always comes from the caller. Full-permission flags are added
-only when the request asks for them.
+**`Harness`** builds a `LaunchPlan` from a `LaunchRequest`, optionally installs a
+turn-finished signal (`SignalSetup`) and parses its lines, and supplies its own
+screen `rules`. The executable path always comes from the caller. Full-permission
+flags are added only when the request asks for them.
+
+**`Store`** allocates sessions and keeps their record, signal stream and rule log.
+It also installs and removes harness signal files in the workspace. A consumer
+can supply its own to choose the location.
+
+**`Clock`** provides monotonic time, sleep and the wall clock, so deadlines are
+tested without waiting.
+
+`HostKind` and `HarnessKind` are open names rather than enums, and nothing in the
+core lists hosts or harnesses. `tests/session.rs` plugs in a host and a harness
+defined outside the crate to keep that true.
 
 ## Decisions taken from prior art
 
@@ -77,6 +102,8 @@ only when the request asks for them.
 
 ## Session state
 
+`FsStore` keeps each session in a directory, so any process can pick it up by id:
+
 ```text
 $AGENTDRIVER_STATE/<session-id>/
   session.json   schema, id, host, pane ref, harness, cwd, created_at
@@ -85,8 +112,8 @@ $AGENTDRIVER_STATE/<session-id>/
 ```
 
 `$AGENTDRIVER_STATE` defaults to `~/Library/Application Support/agentdriver` on
-macOS and `$XDG_STATE_HOME/agentdriver` elsewhere. Nothing is held in memory
-between calls. A partial line in `signals` is left until its newline arrives.
+macOS and `$XDG_STATE_HOME/agentdriver` elsewhere. A partial line in `signals`
+is left until its newline arrives.
 
 ## Waiting
 
@@ -110,7 +137,9 @@ was awaited and quotes the last screen.
 ## Testing
 
 - **Unit:** beside the code. Screen rules take captured screens.
-- **Session behaviour:** `FakeHost` scripts screens, states and reused terminals.
+- **Session behaviour:** `tests/session.rs` uses `FakeHost`, `MemoryStore` and
+  `FakeClock`, so deadlines run instantly.
+- **Boundaries:** `tests/architecture.rs` checks the dependency direction.
 - **Adapter contract:** one shared suite every host passes (M1).
 - **Conformance:** the live Tier 1 matrix in
   [support tiers](support-tiers.md#release-verification).

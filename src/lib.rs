@@ -4,29 +4,23 @@
 //! (Herdr, tmux, …) and returns a [`Session`]. A session reads the screen,
 //! sends input, waits for a condition and closes the pane.
 //!
-//! The library is synchronous. Every external call is bounded by a timeout
-//! and an output cap; see [`exec`].
+//! The crate is hexagonal. [`domain`] is shared vocabulary, [`ports`] are the
+//! traits the core needs, [`core`](crate::core) is the logic, and [`adapters`]
+//! connect the ports to the outside world. `tests/architecture.rs` enforces
+//! the direction of those dependencies.
 #![cfg_attr(test, allow(clippy::unwrap_used))]
 
-mod driver;
-pub mod error;
-pub mod exec;
-pub mod harness;
-pub mod host;
-pub mod id;
-pub mod key;
-pub mod rules;
-pub mod screen;
-pub mod session;
-pub mod state;
-pub mod wait;
+pub mod adapters;
+pub mod core;
+pub mod domain;
+pub mod ports;
 
-pub use driver::{Config, Driver, SessionSpec};
-pub use error::{Error, ErrorKind, Result};
-pub use harness::{Harness, HarnessKind};
-pub use host::{Host, HostKind};
-pub use id::{PaneId, SessionId, TerminalId};
-pub use key::Key;
-pub use rules::RulePolicy;
-pub use screen::Screen;
-pub use session::Session;
+pub use crate::core::{Driver, Session, SessionSpec, Wait};
+pub use crate::domain::error::{Error, ErrorKind, Result};
+pub use crate::domain::id::{HarnessKind, HostKind, PaneId, SessionId, TerminalId};
+pub use crate::domain::key::Key;
+pub use crate::domain::screen::Screen;
+pub use crate::ports::clock::Clock;
+pub use crate::ports::harness::Harness;
+pub use crate::ports::host::Host;
+pub use crate::ports::store::Store;

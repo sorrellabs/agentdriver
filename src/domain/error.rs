@@ -4,8 +4,7 @@
 use std::io;
 use std::time::Duration;
 
-use crate::host::HostKind;
-use crate::id::PaneId;
+use crate::domain::id::{HostKind, PaneId};
 
 pub type Result<T> = std::result::Result<T, Error>;
 

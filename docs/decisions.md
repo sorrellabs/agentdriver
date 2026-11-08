@@ -151,3 +151,17 @@ consumed as it is read.
 
 **Why:** expect-style libraries assume output that scrolls by. Claude Code and
 Codex repaint the whole screen, so a stream does not describe what is visible.
+
+## 16. Hexagonal, enforced by a test
+
+The crate is split into `domain`, `ports`, `core` and `adapters`, with dependencies
+pointing inward. Hosts, harnesses, storage and time all sit behind ports, and
+`HostKind` and `HarnessKind` are open names. `tests/architecture.rs` scans the
+source and fails when a layer crosses the boundary.
+
+**Why:** the point of agentdriver is that a new host or harness is a new adapter
+and nothing else, including one written outside this crate. Time and storage are
+ports because brgr's three-minute deadline must be testable without waiting, and
+brgr must choose where its logs go. The layers are folders rather than crates
+([decision 11](#11-one-package)), so a test does what the compiler would.
+`exec.rs` is not a port: only adapters use it.

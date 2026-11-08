@@ -46,14 +46,21 @@ The repository is at the design stage; code lands milestone by milestone
 
 See [docs/architecture.md](docs/architecture.md) for the module map.
 
-- `src/lib.rs`, `driver.rs`, `session.rs`, `wait.rs` — public API and the verbs.
-- `src/host/` — `Host` trait and one module per host, each behind a feature.
-- `src/harness/` — `Harness` trait and launch recipes.
-- `src/rules/` — screen rules, `classify`, `RulePolicy`.
-- `src/state.rs` — session state on disk. `src/exec.rs` — the only place that
-  runs external commands.
+The crate is hexagonal, and `tests/architecture.rs` enforces the direction.
+
+- `src/domain/` — shared vocabulary. Uses no other layer.
+- `src/ports/` — `Host`, `Harness`, `Store`, `Clock`. Uses only `domain`.
+- `src/core/` — `Driver`, `Session`, `Wait`, `classify`. Uses `ports` and `domain`.
+  No files, processes, threads, real time or environment variables here: add a
+  port instead.
+- `src/adapters/` — hosts (one per feature), harness recipes and their rules,
+  stores, clocks, and `exec.rs`, the only place that runs external commands.
 - `src/bin/agentdriver/` — CLI and MCP; no logic the library lacks, and the only
   code that may use clap, rmcp or tokio.
+
+A new host or harness is a new adapter. If it needs a change in `core`, the port
+is wrong: fix the port. Never add a list of hosts or harnesses to `core`.
+
 - `tests/` — black-box tests; `testdata/screens/` captured screens;
   `testdata/fake-host/` and `testdata/fake-agent/` the deterministic fakes.
 - `docs/` — design, research, the [brgr coverage checklist](docs/brgr-coverage/README.md).
