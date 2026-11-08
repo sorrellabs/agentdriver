@@ -51,6 +51,12 @@ adapter writes and removes on close.
 **Why:** agentdriver must not change how the user's harness behaves outside
 agentdriver sessions, and must leave nothing behind.
 
+**Exception — owner integrations.** Some signals only exist globally: the
+Codex `hooks.json` an owner session reads, and the Claude Code / Cursor
+status-line command that reports usage. agentdriver installs these only
+through an explicit `integrate` call, chains any existing entry instead of
+replacing it, keeps a backup, and can remove exactly what it added.
+
 ## 6. Guarantees cover Tier 1 × Tier 1 only
 
 See [support tiers](support-tiers.md).
