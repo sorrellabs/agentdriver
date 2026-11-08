@@ -13,7 +13,6 @@ underneath.
 | [zqkra/cbds](https://github.com/zqkra/cbds) | Herdr dispatch with fs-watch `wait` and mandatory timeout | Same wait discipline as agentdriver |
 | [husniadil/herdr-dispatch](https://github.com/husniadil/herdr-dispatch), [herdr-mail](https://github.com/husniadil/herdr-mail) | Worker pane per task; notify/ask/reply | Herdr-only |
 | [junghan0611/entwurf](https://github.com/junghan0611/entwurf) | Cross-harness sibling sessions and messaging via ACP | Harness identity across vendors |
-| [shakestzd/wipnote](https://github.com/shakestzd/wipnote) | Local-first lineage and observability for AI-assisted development, with Herdr worker delegation planned | Potential consumer; independently chose no-daemon and opt-in prompt answers |
 | T3 Code orchestrator MCP | `delegate_task`, `create_threads`, `schedule_task` inside T3 | T3-only; agentdriver drives T3 through its outside-agents MCP |
 | Orca orchestration | Built-in agent orchestration in Orca | Orca-only; agentdriver uses only Orca's terminal CLI |
 
