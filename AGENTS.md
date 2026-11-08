@@ -12,6 +12,13 @@ The repository is at the design stage; code lands milestone by milestone
   `rust-toolchain.toml` pins `1.95.0` with `clippy` and `rustfmt`, and
   `rust-version = "1.95"` is the MSRV. Raise both together, in a dedicated
   change, when brgr raises its toolchain.
+- **Rust only.** The one exception is a file a harness requires in its own
+  language, such as the OpenCode plugin (JavaScript). Keep each one minimal:
+  it only appends a signal line and calls nothing else. Store it under
+  `assets/<harness>/`, embed it with `include_str!`, and pin it with a test.
+  Hook commands call the `agentdriver` binary. Shell scripts are not allowed.
+  Other languages use the CLI's JSON output or the MCP server; no
+  Python/TypeScript SDK or FFI bindings until a real user needs one.
 - **Synchronous core.** The library uses `std::process` and blocking, bounded
   waits; it does not depend on an async runtime. Every host call takes a
   timeout and an output cap. Waiting on several sessions is a single polling
