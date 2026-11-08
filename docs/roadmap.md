@@ -16,7 +16,7 @@ Milestones are ordered; each one ships something usable.
 - Tier 1 harness adapters with their signals and brgr's screen rules.
 - brgr drives Herdr only through agentdriver (no direct `herdr` calls left in
   its driving code).
-- Exit: brgr's own test suite and live checks pass on agentdriver.
+- Exit: every item in the [brgr coverage checklist](brgr-coverage.md) is checked.
 
 ## M2 — tmux and Linux
 

@@ -68,6 +68,7 @@ verified on every release on a fresh Linux VM and on macOS. Details:
 - [Harnesses](docs/harnesses.md) — how each agent signals a finished turn
 - [Decisions](docs/decisions.md) — design decisions and their reasons
 - [Prior art](docs/prior-art.md) — related tools and how agentdriver differs
+- [brgr coverage](docs/brgr-coverage.md) — checklist of everything brgr needs from this layer
 - [Roadmap](docs/roadmap.md)
 
 ## Origin
