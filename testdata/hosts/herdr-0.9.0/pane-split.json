@@ -1,0 +1,22 @@
+{
+  "id": "cli:pane:split",
+  "result": {
+    "pane": {
+      "agent_status": "unknown",
+      "cwd": "/work/task",
+      "focused": false,
+      "foreground_cwd": "/work/task",
+      "pane_id": "wKV:p3",
+      "revision": 0,
+      "scroll": {
+        "max_offset_from_bottom": 0,
+        "offset_from_bottom": 0,
+        "viewport_rows": 60
+      },
+      "tab_id": "wKV:t1",
+      "terminal_id": "term_65ffb1a40d953278",
+      "workspace_id": "wKV"
+    },
+    "type": "pane_info"
+  }
+}

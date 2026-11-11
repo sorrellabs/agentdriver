@@ -115,6 +115,16 @@ pub fn run(spec: &CommandSpec) -> Result<CommandOutput> {
     })
 }
 
+/// One POSIX shell command line that runs `argv` exactly, for hosts that only
+/// accept a command string. Every word is single-quoted, so nothing in it is
+/// expanded or split by the shell.
+pub fn shell_command(argv: &[String]) -> String {
+    argv.iter()
+        .map(|word| format!("'{}'", word.replace('\'', r"'\''")))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn capture(
     stream: Option<impl Read + Send + 'static>,
     limit: usize,
@@ -188,6 +198,31 @@ mod tests {
         assert!(output.success());
         assert_eq!(output.stdout, b"done");
         assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[test]
+    fn a_quoted_command_reaches_the_program_as_the_same_words() {
+        let argv: Vec<String> = [
+            "plain",
+            "two words",
+            "it's",
+            "",
+            "$HOME `id` $(id) *",
+            "line\nbreak",
+            "한글 ✓",
+            "-flag",
+        ]
+        .map(String::from)
+        .to_vec();
+        // `printf '%s\0'` writes each argument it receives followed by a NUL.
+        let output = run(&shell(&format!("printf '%s\\0' {}", shell_command(&argv)))).unwrap();
+        let mut words: Vec<String> = output
+            .stdout
+            .split(|byte| *byte == 0)
+            .map(|word| String::from_utf8_lossy(word).into_owned())
+            .collect();
+        assert_eq!(words.pop().as_deref(), Some(""), "output ends with a NUL");
+        assert_eq!(words, argv);
     }
 
     #[test]

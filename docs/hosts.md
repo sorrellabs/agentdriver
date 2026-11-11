@@ -36,6 +36,35 @@ the Herdr CLI is the minimum the Herdr adapter must cover:
 Worktree commands are workspace management, not driving; they stay in the
 consumer, not in agentdriver (see [decision 7](decisions.md#7-worktrees-belong-to-the-caller)).
 
+### What the adapter does (Herdr 0.9.0)
+
+| Verb | Herdr call | Notes |
+|---|---|---|
+| spawn (split) | `pane split --pane T --direction right\|down --cwd C --env K=V --no-focus`, then `pane run P <cmd>` | The argv is single-quoted into one command line by `exec::shell_command`. If `pane run` fails, the new pane is closed again. |
+| spawn (tab) | `tab create --workspace W --cwd C [--label L] --env K=V --no-focus` | `W` comes from `HERDR_WORKSPACE_ID` or `with_workspace`; without it the call is refused, because Herdr would use the focused workspace. |
+| spawn (agent) | `agent start NAME --kind K --pane P [-- args]` | 45 s limit; Herdr waits up to 30 s for the agent to be ready. |
+| read | `pane read P --source visible\|recent-unwrapped --lines N` | Plain text on stdout. |
+| send text | `pane send-text P TEXT` | Paste mode wraps the text in `ESC[200~ … ESC[201~` and strips a closing marker from the text. |
+| keys | `pane send-keys P K…` | One call; Herdr checks every key before writing. Names: `enter esc tab shift+tab up down left right backspace space ctrl+x f1…f12` and single characters (`backtab` is rejected). |
+| close | `pane close P` | `pane_not_found` counts as closed. |
+| pane info | `pane get P` | `terminal_id` tells a reused pane id apart; `pane_not_found` is a proven absence, any other failure an error. |
+| agent state | `agent get P` | `idle working blocked done unknown`; `agent_not_found` (no recognised agent) is `unknown`. |
+| prompt | `agent prompt P TEXT` | `agent_blocked` becomes `AwaitingInput`. |
+| layout, resize, rename | `pane layout --pane P`, `pane resize`, `pane rename` | |
+
+Every call has a time limit and an output cap. `HERDR_SESSION` adds
+`--session`; `HERDR_BIN_PATH` (absolute) replaces `herdr` from `PATH`.
+Caller location (`locate_caller`) is not implemented yet: reading
+`HERDR_PANE_ID` is not proof ([brgr coverage](brgr-coverage/README.md#gaps-agentdrivers-current-design-does-not-yet-cover)).
+
+Found while checking it live:
+
+- Claude Code 2.1.319's folder-trust menu starts on **No, exit**; Enter alone
+  quits the agent. The answer has to move to *Yes* first.
+- A menu that has just been drawn can drop keys. Pressing only on a screen
+  that has held still for 500 ms, one key at a time and re-reading the
+  selection after each, passed 5 of 5 runs; pressing at once failed 2 of 3.
+
 ## Orca (Tier 1)
 
 Orca's CLI covers the whole verb set:

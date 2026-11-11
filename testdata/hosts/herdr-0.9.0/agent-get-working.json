@@ -1,0 +1,21 @@
+{
+  "id": "cli:agent:get",
+  "result": {
+    "agent": {
+      "agent": "claude",
+      "agent_status": "working",
+      "cwd": "/work/agentdriver",
+      "focused": false,
+      "foreground_cwd": "/work/agentdriver",
+      "pane_id": "wKV:p1",
+      "revision": 8,
+      "state_change_seq": 8710,
+      "tab_id": "wKV:t1",
+      "terminal_id": "term_65fe6fccf2ccf26b",
+      "terminal_title": "◐ 진행 상황 확인",
+      "terminal_title_stripped": "진행 상황 확인",
+      "workspace_id": "wKV"
+    },
+    "type": "agent_info"
+  }
+}

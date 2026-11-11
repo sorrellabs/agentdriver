@@ -1,8 +1,8 @@
 # Architecture
 
-This describes the code as it exists. The skeleton compiles and its tests pass;
-the Herdr and tmux adapters and most screen rules are filled in by the
-[roadmap](roadmap.md) milestones.
+This describes the code as it exists. The Herdr adapter is implemented; the
+tmux adapter and most screen rules are filled in by the [roadmap](roadmap.md)
+milestones.
 
 ## Layers
 
@@ -140,6 +140,9 @@ was awaited and quotes the last screen.
 - **Session behaviour:** `tests/session.rs` uses `FakeHost`, `MemoryStore` and
   `FakeClock`, so deadlines run instantly.
 - **Boundaries:** `tests/architecture.rs` checks the dependency direction.
+- **Host adapters:** each adapter answers its unit tests with replies captured
+  from the real host (`testdata/hosts/<host>-<version>/`), and has a live test
+  (`tests/live_<host>.rs`, `--features live -- --ignored`).
 - **Adapter contract:** one shared suite every host passes (M1).
 - **Conformance:** the live Tier 1 matrix in
   [support tiers](support-tiers.md#release-verification).
