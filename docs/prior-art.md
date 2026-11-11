@@ -8,7 +8,7 @@ underneath.
 
 | Tool | What it does | Relation |
 |---|---|---|
-| [brgr](https://github.com/justn-hyeok/brgr) | Cross-vendor agent workflows on Herdr: bounded runs, sealed results, durable inbox, owner decisions; debate, dynamic workflows, head migration | First consumer; agentdriver is extracted from its Herdr layer |
+| [brgr](https://github.com/justn-hyeok/brgr) | Cross-vendor agent workflows on Herdr: bounded runs, sealed results, durable inbox, owner decisions; debate, dynamic workflows, head migration | Being replaced: agentdriver takes over its driving and workflow layers ([decision 17](decisions.md#17-agentdriver-replaces-brgr)) |
 | [mrrobot-ec/pod](https://github.com/mrrobot-ec/pod) | Herdr plugin delegating to Claude, Codex, Grok; durable acked messages; no daemon | Herdr-only driving layer of its own |
 | [zqkra/cbds](https://github.com/zqkra/cbds) | Herdr dispatch with fs-watch `wait` and mandatory timeout | Same wait discipline as agentdriver |
 | [husniadil/herdr-dispatch](https://github.com/husniadil/herdr-dispatch), [herdr-mail](https://github.com/husniadil/herdr-mail) | Worker pane per task; notify/ask/reply | Herdr-only |

@@ -13,6 +13,11 @@ your tool (orchestrator, workflow engine, test harness, bot)
                └─ harness adapter ─► Claude Code │ Codex │ Cursor │ Devin │ OpenCode │ …
 ```
 
+agentdriver is also replacing [brgr]: the delegated-work layer on top —
+bounded runs, worktrees, sealed results, owner decisions and messages, model
+routing — moves here, and brgr retires once it is covered
+([decision 17](docs/decisions.md#17-agentdriver-replaces-brgr)).
+
 > Status: design stage. This repository holds the design and the research it
 > is based on; code lands milestone by milestone (see [roadmap](docs/roadmap.md)).
 
@@ -38,8 +43,9 @@ take over any pane at any time.
 
 - Not an agentic development environment (ADE). It has no UI of its own and
   does not compete with the hosts it drives.
-- Not an orchestrator. It does not decide what work to give which agent;
-  that belongs to the tool on top (for example [brgr]).
+- The driving layer is not an orchestrator: it never decides what work to
+  give which agent. That is the workflow layer's job, built on the driving
+  layer's public API.
 - Not a daemon or server. Every call is a short process or a bounded wait.
 
 ## Support at a glance
@@ -68,14 +74,14 @@ verified on every release on a fresh Linux VM and on macOS. Details:
 - [Harnesses](docs/harnesses.md) — how each agent signals a finished turn
 - [Decisions](docs/decisions.md) — design decisions and their reasons
 - [Prior art](docs/prior-art.md) — related tools and how agentdriver differs
-- [brgr coverage](docs/brgr-coverage/README.md) — checklist of everything brgr needs from this layer
+- [brgr coverage](docs/brgr-coverage/README.md) — checklist of everything brgr does, all of it in scope
 - [Roadmap](docs/roadmap.md)
 
 ## Origin
 
-agentdriver is a separate project from [brgr], a cross-vendor agent workflow
-tool. brgr runs on agentdriver, and everything brgr needs from a host or
-harness is in scope.
+agentdriver started as the layer under [brgr], a cross-vendor agent workflow
+tool, and now replaces it: everything brgr does is in scope, and brgr retires
+once agentdriver covers it.
 
 ## License
 

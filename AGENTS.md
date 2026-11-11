@@ -1,7 +1,9 @@
 # Repository Guidelines
 
 agentdriver drives coding-agent TUIs inside terminal hosts: spawn, read,
-send, wait for idle, close. Start with [README.md](README.md), then
+send, wait for idle, close. It also replaces brgr: delegated runs, worktrees,
+sealed results and owner messages move here
+([decision 17](docs/decisions.md#17-agentdriver-replaces-brgr)). Start with [README.md](README.md), then
 [docs/concepts.md](docs/concepts.md) and [docs/decisions.md](docs/decisions.md).
 The repository is at the design stage; code lands milestone by milestone
 ([docs/roadmap.md](docs/roadmap.md)).
@@ -142,10 +144,13 @@ host. Keep "unit tests pass" separate from "checked in a live pane".
 - Harness configuration is per launch or per workspace; global writes only
   through explicit owner integrations
   ([decision 5](docs/decisions.md#5-harness-configuration-is-per-launch-or-per-workspace-never-global)).
-- agentdriver never decides what work an agent does, never creates or removes
-  worktrees, and never closes a pane it cannot prove it owns.
-- brgr runs on agentdriver: a change that would break an item in
-  `docs/brgr-coverage/` needs that item updated and a note on how brgr adapts.
+- The driving layer (`domain`, `ports`, `core`, `adapters`) never decides what
+  work an agent does and never creates or removes worktrees; the workflow
+  layer does both, through the driving layer's public API. Nothing closes a
+  pane it cannot prove it owns.
+- agentdriver replaces brgr: every item in `docs/brgr-coverage/`, **[brgr]**
+  ones included, is in scope. A change that would break a ticked item needs
+  that item updated in the same change.
 
 ## Working Rules for Bugs
 

@@ -66,6 +66,10 @@ verified core is worth more than a large, partly working one.
 
 ## 7. Worktrees belong to the caller
 
+> Superseded by [decision 17](#17-agentdriver-replaces-brgr): agentdriver's
+> workflow layer creates and removes worktrees. The driving layer still only
+> spawns in the directory it is given.
+
 agentdriver spawns in a directory it is given. Creating, listing and removing
 git worktrees stays with the tool above it, even on hosts that offer worktree
 commands.
@@ -75,13 +79,18 @@ consumer has its own. Keeping it out keeps the port small.
 
 ## 8. Not an ADE
 
-agentdriver has no UI and does not manage projects, threads or reviews.
+agentdriver has no UI of its own and does not manage projects or threads.
+Delegated runs and their results are in scope since
+[decision 17](#17-agentdriver-replaces-brgr).
 
 **Why:** it is infrastructure for the ADEs, multiplexers and orchestrators
 people already use. Competing with its own hosts would make it worse at being
 driven into them.
 
 ## 9. Separate from brgr, and covers everything brgr needs
+
+> Superseded by [decision 17](#17-agentdriver-replaces-brgr): agentdriver
+> replaces brgr instead of running under it.
 
 agentdriver is its own project: driving agent TUIs across hosts is a different
 job from brgr's agent workflows. brgr runs on agentdriver, so every host and
@@ -165,3 +174,31 @@ ports because brgr's three-minute deadline must be testable without waiting, and
 brgr must choose where its logs go. The layers are folders rather than crates
 ([decision 11](#11-one-package)), so a test does what the compiler would.
 `exec.rs` is not a port: only adapters use it.
+
+## 17. agentdriver replaces brgr
+
+agentdriver takes over everything brgr does, and brgr is retired once it does;
+until then brgr stays in use. That covers the driving layer (hosts, harnesses,
+screens, waits, closing) and the workflow layer on top of it: bounded delegated
+runs, worktrees, sealed results and owner decisions, owner messages, model
+routing and head migration. Every item in
+[brgr coverage](brgr-coverage/README.md), including those tagged **[brgr]**, is
+in scope.
+
+Inside the crate the two layers stay apart. The driving layer (`domain`,
+`ports`, `core`, `adapters` as they are today) never decides what work an agent
+does; the workflow layer uses it only through its public API, the way brgr
+would have. Where the workflow layer lives (modules, a binary) is decided when
+it is designed.
+
+[Decision 4](#4-prompt-answers-are-opt-in) still holds for the driving layer:
+prompt answers are opt-in by rule name, and the workflow layer is the caller
+that enables them, as brgr enables all of them today.
+
+Open: brgr runs a per-task session server and keeps a durable inbox.
+[Decision 1](#1-a-library-a-cli-and-an-mcp-server--no-daemon-no-http-api)
+rules out a daemon, so those parts need a design that fits it, or decision 1
+changes with a reason.
+
+**Why:** the owner's decision (2026-11-11). It supersedes decisions 7 and 9.
+
