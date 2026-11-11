@@ -8,6 +8,10 @@ use crate::domain::id::{HostKind, PaneId};
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Marks where an error quotes the pane's screen. Callers that pass errors on
+/// cut at this marker so screen text never leaves the machine.
+pub const LAST_SCREEN: &str = "last screen:";
+
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 pub struct Error(Box<ErrorKind>);
@@ -57,11 +61,30 @@ pub enum ErrorKind {
     /// A prompt is on screen that no enabled rule answers.
     #[error("agent in pane {pane} is waiting for input: {excerpt}")]
     AwaitingInput { pane: PaneId, excerpt: String },
-    #[error("timed out after {elapsed:?} waiting for {waited_for}; last screen: {excerpt}")]
+    #[error("timed out after {elapsed:?} waiting for {waited_for}; {LAST_SCREEN} {excerpt}")]
     Timeout {
         waited_for: String,
         elapsed: Duration,
         excerpt: String,
+    },
+    /// A screen no rule answers stood past the deadline.
+    #[error(
+        "agent in pane {pane} stayed on a screen no rule answers for {}s; {LAST_SCREEN} {excerpt}",
+        elapsed.as_secs()
+    )]
+    StuckOnScreen {
+        pane: PaneId,
+        elapsed: Duration,
+        excerpt: String,
+    },
+    /// A rule kept answering the same screen and it did not go away.
+    #[error(
+        "agent in pane {pane} kept showing a screen {rule} answers; {presses} presses did not clear it"
+    )]
+    PromptNotCleared {
+        pane: PaneId,
+        rule: &'static str,
+        presses: u32,
     },
     #[error("{host} does not support {operation}")]
     Unsupported {

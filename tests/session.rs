@@ -13,7 +13,7 @@ use agentdriver::adapters::host::fake::FakeHost;
 use agentdriver::adapters::store::MemoryStore;
 use agentdriver::core::rules::{Classification, RulePolicy};
 use agentdriver::core::wait::IdleSource;
-use agentdriver::domain::rule::Rule;
+use agentdriver::domain::rule::{Rule, Verdict};
 use agentdriver::ports::harness::{LaunchPlan, LaunchRequest, Signal, SignalSetup};
 use agentdriver::ports::host::{
     AgentState, Capabilities, PaneInfo, PaneRef, Placement, ReadOptions, SpawnSpec, TextMode,
@@ -55,6 +55,7 @@ fn spawn_with(harness: Arc<dyn Harness>, policy: RulePolicy) -> Fixture {
             placement: Placement::Tab { label: None },
             cwd: PathBuf::from("/repo/task"),
             env: Vec::new(),
+            primary_checkout: None,
         })
         .unwrap();
     Fixture {
@@ -158,7 +159,38 @@ fn an_answered_prompt_is_pressed_and_logged() {
         Classification::Resolve { .. }
     ));
     assert_eq!(host.sent_keys(session.pane()), [Key::Enter]);
-    assert!(store.rule_log(session.id())[0].contains("continue-notice"));
+    let line = &store.rule_log(session.id())[0];
+    assert!(
+        line.ends_with(&format!("{} continue-notice enter", session.pane())),
+        "{line}"
+    );
+}
+
+#[test]
+fn a_trust_prompt_for_the_sessions_folder_moves_to_yes_in_one_call() {
+    let Fixture { host, session, .. } = fixture(RulePolicy::answering(["workspace-trust"]));
+    host.set_state(session.pane(), AgentState::Blocked);
+    host.set_screen(
+        session.pane(),
+        "Accessing workspace:\n\n/repo/task\n\n❯ No, exit\n  Yes, I trust this folder\n",
+    );
+    session.resolve_prompt().unwrap();
+    assert_eq!(host.sent_keys(session.pane()), [Key::Down, Key::Enter]);
+}
+
+#[test]
+fn trust_prompt_for_another_folder_is_reported_not_answered() {
+    let Fixture { host, session, .. } = fixture(RulePolicy::answering(["workspace-trust"]));
+    host.set_state(session.pane(), AgentState::Blocked);
+    host.set_screen(
+        session.pane(),
+        "Accessing workspace:\n\n/elsewhere\n\n❯ No, exit\n  Yes, I trust this folder\n",
+    );
+    assert!(matches!(
+        session.resolve_prompt().unwrap(),
+        Classification::Unknown { .. }
+    ));
+    assert!(host.sent_keys(session.pane()).is_empty());
 }
 
 // A harness and a host defined outside the crate, using only the public API.
@@ -168,7 +200,11 @@ struct OutsideHarness;
 
 const OUTSIDE_RULE: Rule = Rule {
     name: "outside-prompt",
-    answer: |screen, _| screen.contains("Outside?").then(|| vec![Key::Char('y')]),
+    answer: |screen, _| {
+        screen
+            .contains("Outside?")
+            .then(|| Verdict::Answer(vec![Key::Char('y')]))
+    },
 };
 
 impl Harness for OutsideHarness {
@@ -310,6 +346,7 @@ fn a_host_outside_the_crate_plugs_into_the_driver() {
             placement: Placement::Tab { label: None },
             cwd: PathBuf::from("/repo/task"),
             env: Vec::new(),
+            primary_checkout: None,
         })
         .unwrap_err();
     assert!(error.is_unsupported());

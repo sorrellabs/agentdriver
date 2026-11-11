@@ -18,6 +18,9 @@ pub struct SessionSpec {
     pub placement: Placement,
     pub cwd: PathBuf,
     pub env: Vec<(String, String)>,
+    /// The primary checkout when `cwd` is a worktree of it. Worktrees belong to
+    /// the caller, so the caller says; Codex's worktree trust prompt names it.
+    pub primary_checkout: Option<PathBuf>,
 }
 
 /// Holds the ports. [`crate::adapters::default_driver`] wires the real ones.
@@ -87,6 +90,7 @@ impl Driver {
             clock: self.clock.clone(),
             pane,
             workspace: spec.cwd,
+            primary_checkout: spec.primary_checkout,
             policy: self.policy.clone(),
             installed,
         })
