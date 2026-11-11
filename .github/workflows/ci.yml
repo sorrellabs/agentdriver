@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  check:
+    name: check (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Tier 1: Apple Silicon macOS and x86_64 Linux. aarch64 Linux builds and tests too.
+        os: [macos-15, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+      # rust-toolchain.toml pins the version and components; rustup installs it on first use.
+      - name: Toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Test (default features)
+        run: cargo test
+      - name: Test (all features)
+        run: cargo test --all-features
+      - name: Library build leaves out the binary-only dependencies
+        run: |
+          found=$(cargo tree --no-default-features -e normal --prefix none \
+            | awk '{print $1}' | grep -xE 'clap|anyhow|rmcp|tokio' | sort -u || true)
+          if [ -n "$found" ]; then
+            echo "library dependency tree contains: $found"
+            exit 1
+          fi
