@@ -46,6 +46,7 @@ clap, rmcp and tokio are optional dependencies used only under `src/bin/`.
 | `src/core/session.rs` | `Session`: `verify`, `screen`, `send_prompt`, `press`, `wait`, `resolve_prompt`, `close` |
 | `src/core/wait.rs` | `Wait` builder: `at_most`, `every`, `forever`, `until`, `for_text`, `for_stable`, `for_idle` |
 | `src/core/rules.rs` | `classify`, `RulePolicy`, `Classification` |
+| `src/core/watch.rs` | `ScreenWatch`: the 3-minute unknown-screen deadline and the 5-press budget per rule |
 | `src/ports/host.rs` | `Host`, `Capabilities`, `PaneRef`, `SpawnSpec`, `Placement`, `StartMode` |
 | `src/ports/harness.rs` | `Harness`, `LaunchPlan`, `SignalSetup`, `Signal` |
 | `src/ports/store.rs` | `Store`, `SessionRecord` |

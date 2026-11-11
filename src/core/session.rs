@@ -8,7 +8,8 @@ use crate::core::rules::{Classification, RulePolicy, classify};
 use crate::core::wait::Wait;
 use crate::domain::error::{ErrorKind, Result};
 use crate::domain::id::{PaneId, SessionId};
-use crate::domain::key::Key;
+use crate::domain::key::{Key, key_names};
+use crate::domain::rule::RuleContext;
 use crate::domain::screen::Screen;
 use crate::ports::clock::Clock;
 use crate::ports::harness::Harness;
@@ -29,6 +30,7 @@ pub struct Session {
     pub(crate) clock: Arc<dyn Clock>,
     pub(crate) pane: PaneRef,
     pub(crate) workspace: PathBuf,
+    pub(crate) primary_checkout: Option<PathBuf>,
     pub(crate) policy: RulePolicy,
     /// Workspace files the signal setup wrote; removed on close.
     pub(crate) installed: Vec<PathBuf>,
@@ -97,24 +99,36 @@ impl Session {
         self.host.agent_state(self.pane())
     }
 
-    /// Classifies the screen and, when an enabled rule matches, answers it.
-    /// Nothing is read or pressed while the host reports the agent working.
+    /// What the rules may look at besides the screen.
+    pub fn rule_context(&self) -> RuleContext<'_> {
+        RuleContext {
+            workspace: &self.workspace,
+            primary_checkout: self.primary_checkout.as_deref(),
+        }
+    }
+
+    /// Classifies the screen and, when an enabled rule matches, answers it:
+    /// all its keys in one host call, one rule-log line, then a pause for the
+    /// redraw so the same prompt is not answered twice. Nothing is read or
+    /// pressed while the host reports the agent working.
     pub fn resolve_prompt(&self) -> Result<Classification> {
         if self.host.capabilities().agent_state && self.agent_state()? == AgentState::Working {
             return Ok(Classification::Clear);
         }
         let outcome = classify(
             &self.screen()?,
-            &self.workspace,
+            &self.rule_context(),
             self.harness.rules(),
             &self.policy,
         );
         if let Classification::Resolve { rule, keys } = &outcome {
             self.press(keys)?;
+            // `{unix seconds} {pane} {rule} {keys}`, as brgr writes it.
             let line = format!(
-                "{} {} {rule} {keys:?}",
+                "{} {} {rule} {}",
                 self.clock.unix_seconds(),
-                self.pane()
+                self.pane(),
+                key_names(keys)
             );
             self.store.append_rule_log(&self.id, &line)?;
             self.clock.sleep(REDRAW);

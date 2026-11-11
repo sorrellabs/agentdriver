@@ -2,10 +2,9 @@
 //! may answer comes from the caller.
 
 use std::collections::BTreeSet;
-use std::path::Path;
 
 use crate::domain::key::Key;
-use crate::domain::rule::Rule;
+use crate::domain::rule::{Rule, RuleContext, Verdict};
 use crate::domain::screen::Screen;
 use crate::domain::text::menu_options;
 
@@ -35,29 +34,38 @@ pub enum Classification {
     Resolve { rule: &'static str, keys: Vec<Key> },
     /// A known prompt whose rule the caller did not enable.
     Prompt { rule: &'static str, excerpt: String },
-    /// A menu no rule recognises. Never pressed.
+    /// A menu no rule answers, or a prompt a rule refuses (a trust prompt
+    /// for another folder). Never pressed, whatever the policy.
     Unknown { excerpt: String },
 }
 
-/// The first matching rule wins.
+/// Rules run in order and the first that recognises the screen decides. With
+/// none, a selected numbered menu is unknown and anything else is clear.
 pub fn classify(
     screen: &Screen,
-    workspace: &Path,
+    context: &RuleContext<'_>,
     rules: &[Rule],
     policy: &RulePolicy,
 ) -> Classification {
     let matched = rules
         .iter()
-        .find_map(|rule| (rule.answer)(screen, workspace).map(|keys| (rule.name, keys)));
-    if let Some((rule, keys)) = matched {
-        return if policy.allows(rule) {
-            Classification::Resolve { rule, keys }
-        } else {
-            Classification::Prompt {
+        .find_map(|rule| (rule.answer)(screen, context).map(|verdict| (rule.name, verdict)));
+    match matched {
+        Some((rule, Verdict::Answer(keys))) if policy.allows(rule) => {
+            return Classification::Resolve { rule, keys };
+        }
+        Some((rule, Verdict::Answer(_))) => {
+            return Classification::Prompt {
                 rule,
                 excerpt: screen.excerpt(),
-            }
-        };
+            };
+        }
+        Some((_, Verdict::Refuse)) => {
+            return Classification::Unknown {
+                excerpt: screen.excerpt(),
+            };
+        }
+        None => {}
     }
     if menu_options(&screen.text)
         .iter()
@@ -74,18 +82,37 @@ pub fn classify(
 mod tests {
     use super::*;
 
+    use std::path::Path;
+
     const READY: Rule = Rule {
         name: "ready",
-        answer: |screen, _| screen.contains("Ready?").then(|| vec![Key::Enter]),
+        answer: |screen, _| {
+            screen
+                .contains("Ready?")
+                .then(|| Verdict::Answer(vec![Key::Enter]))
+        },
+    };
+
+    const ELSEWHERE: Rule = Rule {
+        name: "elsewhere",
+        answer: |screen, _| screen.contains("Elsewhere?").then_some(Verdict::Refuse),
     };
 
     fn classified(text: &str, policy: &RulePolicy) -> Classification {
         classify(
             &Screen::new(text),
-            Path::new("/repo/task"),
-            &[READY],
+            &RuleContext::new(Path::new("/repo/task")),
+            &[READY, ELSEWHERE],
             policy,
         )
+    }
+
+    #[test]
+    fn a_refused_prompt_is_unknown_even_when_its_rule_is_enabled() {
+        assert!(matches!(
+            classified("Elsewhere?", &RulePolicy::answering(["elsewhere"])),
+            Classification::Unknown { .. }
+        ));
     }
 
     #[test]
