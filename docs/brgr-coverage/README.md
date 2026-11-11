@@ -1,12 +1,12 @@
 # brgr coverage checklist
 
-Everything brgr (v2.15.21) needs from the terminal-host and harness-TUI layer.
-brgr runs on agentdriver, so all of it is in scope
-([decision 9](../decisions.md#9-separate-from-brgr-and-covers-everything-brgr-needs)).
+Everything brgr (v2.15.21) does. agentdriver replaces brgr, so all of it is in
+scope ([decision 17](../decisions.md#17-agentdriver-replaces-brgr)).
 
-An item is checked when it is implemented in agentdriver **and** brgr's own
-tests and live checks pass on it. Items tagged **[brgr]** stay in brgr; they
-are listed so the boundary can be checked, not as agentdriver work. Every item
+An item is checked when it is implemented in agentdriver **and** the brgr test
+it was ported with passes (plus a live check where the item is about a live
+host). Items tagged **[brgr]** belong to the workflow layer; the rest to the
+driving layer. Every item
 cites the brgr source it was taken from (`file:line`), so a change in brgr
 can be traced back to the checklist.
 
